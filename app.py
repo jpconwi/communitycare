@@ -345,52 +345,64 @@ def main(page: ft.Page):
             logging.error(f"Error compressing image: {e}")
             return image_data
 
-    # File pickers for photo upload
+    # File pickers for photo upload - FIXED FOR WEB
     file_picker = ft.FilePicker()
     camera_picker = ft.FilePicker()
 
     def handle_file_upload(e: ft.FilePickerResultEvent):
-        if e.files and e.files[0]:
+        if e.files:
             try:
-                photo_file = e.files[0]
-                # Read file content
-                photo_bytes = photo_file.read()
-                if not photo_bytes:
-                    show_snack("Error: Could not read file", "#ef4444")
-                    return
+                # In web environment, we need to use the file picker differently
+                # The files are available as base64 data directly
+                for file in e.files:
+                    # Get the base64 data from the file object
+                    if hasattr(file, 'read'):
+                        # Local environment
+                        photo_bytes = file.read()
+                        photo_data = base64.b64encode(photo_bytes).decode('utf-8')
+                    else:
+                        # Web environment - get base64 data directly
+                        photo_data = file.base64
                     
-                photo_data = base64.b64encode(photo_bytes).decode('utf-8')
-        
-                # Compress the image
-                compressed_data = compress_image(photo_data)
-        
-                photo_state.photo_data = compressed_data
-                photo_state.photo_name = photo_file.name
-                update_photo_display()
-                show_snack("Photo uploaded successfully! 📸")
+                    if not photo_data:
+                        show_snack("Error: Could not read file", "#ef4444")
+                        return
+                        
+                    # Compress the image
+                    compressed_data = compress_image(photo_data)
+            
+                    photo_state.photo_data = compressed_data
+                    photo_state.photo_name = file.name
+                    update_photo_display()
+                    show_snack("Photo uploaded successfully! 📸")
+                    break  # Only process first file
             except Exception as ex:
                 logger.error(f"Photo upload error: {str(ex)}")
                 show_snack(f"Error uploading photo: {str(ex)}", "#ef4444")
 
     def handle_camera_photo(e: ft.FilePickerResultEvent):
-        if e.files and e.files[0]:
+        if e.files:
             try:
-                photo_file = e.files[0]
-                photo_bytes = photo_file.read()
-                if not photo_bytes:
-                    show_snack("Error: Could not read photo", "#ef4444")
-                    return
+                # Same logic as file upload for web compatibility
+                for file in e.files:
+                    if hasattr(file, 'read'):
+                        photo_bytes = file.read()
+                        photo_data = base64.b64encode(photo_bytes).decode('utf-8')
+                    else:
+                        photo_data = file.base64
                     
-                photo_data = base64.b64encode(photo_bytes).decode('utf-8')
-        
-                # Compress the image
-                compressed_data = compress_image(photo_data)
-        
-                photo_state.photo_data = compressed_data
-                photo_state.photo_name = "camera_photo.jpg"
-                update_photo_display()
-                show_snack("Photo captured successfully! 📸")
-        
+                    if not photo_data:
+                        show_snack("Error: Could not read photo", "#ef4444")
+                        return
+                        
+                    # Compress the image
+                    compressed_data = compress_image(photo_data)
+            
+                    photo_state.photo_data = compressed_data
+                    photo_state.photo_name = "camera_photo.jpg"
+                    update_photo_display()
+                    show_snack("Photo captured successfully! 📸")
+                    break
             except Exception as ex:
                 logger.error(f"Camera photo error: {str(ex)}")
                 show_snack(f"Error processing photo: {str(ex)}", "#ef4444")
@@ -403,6 +415,7 @@ def main(page: ft.Page):
         )
 
     def open_camera_picker(e):
+        # For web, camera picker works the same as file picker
         camera_picker.pick_files(
             allow_multiple=False,
             allowed_extensions=["png", "jpg", "jpeg"],
@@ -417,8 +430,7 @@ def main(page: ft.Page):
     page.overlay.extend([file_picker, camera_picker])
 
     def update_photo_display():
-        """Update the photo display in the user dashboard"""
-        # This function will be defined in user_dashboard_screen
+        """Update the photo display - will be implemented in specific screens"""
         pass
 
     def login_screen():
@@ -426,7 +438,7 @@ def main(page: ft.Page):
 
         email = modern_textfield(
             label="Email",
-            width=280,
+            width=350,
             prefix_icon=ft.Icons.EMAIL,
             hint_text="Enter your email"
         )
@@ -434,7 +446,7 @@ def main(page: ft.Page):
             label="Password",
             password=True,
             can_reveal_password=True,
-            width=280,
+            width=350,
             prefix_icon=ft.Icons.LOCK,
             hint_text="Enter your password"
         )
@@ -483,10 +495,10 @@ def main(page: ft.Page):
             ], alignment=ft.MainAxisAlignment.CENTER),
             ft.Text("Report community issues with ease", size=16, color="#64748b", text_align=ft.TextAlign.CENTER),
             ft.Container(height=30),
-            email,
-            password,
+            ft.Container(content=email, alignment=ft.alignment.center),
+            ft.Container(content=password, alignment=ft.alignment.center),
             ft.Container(height=10),
-            primary_button("Sign In", do_login, width=280, icon=ft.Icons.LOGIN),
+            ft.Container(content=primary_button("Sign In", do_login, width=350, icon=ft.Icons.LOGIN), alignment=ft.alignment.center),
             ft.Container(height=10),
             ft.Row([
                 ft.Text("Don't have an account?", color="#64748b"),
@@ -507,20 +519,21 @@ def main(page: ft.Page):
             ft.Container(
                 content=modern_card(login_content, padding=30),
                 padding=20,
-                alignment=ft.alignment.center
+                alignment=ft.alignment.center,
+                expand=True
             )
         )
 
     def register_screen():
         page.clean()
 
-        username = modern_textfield(label="Full Name", width=280, prefix_icon=ft.Icons.PERSON)
-        email = modern_textfield(label="Email", width=280, prefix_icon=ft.Icons.EMAIL)
-        phone = modern_textfield(label="Phone (optional)", width=280, prefix_icon=ft.Icons.PHONE)
-        password = modern_textfield(label="Password", password=True, can_reveal_password=True, width=280,
+        username = modern_textfield(label="Full Name", width=350, prefix_icon=ft.Icons.PERSON)
+        email = modern_textfield(label="Email", width=350, prefix_icon=ft.Icons.EMAIL)
+        phone = modern_textfield(label="Phone (optional)", width=350, prefix_icon=ft.Icons.PHONE)
+        password = modern_textfield(label="Password", password=True, can_reveal_password=True, width=350,
                                     prefix_icon=ft.Icons.LOCK)
         confirm_password = modern_textfield(label="Confirm Password", password=True, can_reveal_password=True,
-                                            width=280, prefix_icon=ft.Icons.LOCK)
+                                            width=350, prefix_icon=ft.Icons.LOCK)
 
         def do_register(e):
             if not all([username.value, email.value, password.value, confirm_password.value]):
@@ -575,19 +588,20 @@ def main(page: ft.Page):
                 ft.Text("Create Account", size=20, weight=ft.FontWeight.BOLD, color="#1e293b", expand=True),
             ]),
             ft.Container(height=20),
-            username,
-            email,
-            phone,
-            password,
-            confirm_password,
+            ft.Container(content=username, alignment=ft.alignment.center),
+            ft.Container(content=email, alignment=ft.alignment.center),
+            ft.Container(content=phone, alignment=ft.alignment.center),
+            ft.Container(content=password, alignment=ft.alignment.center),
+            ft.Container(content=confirm_password, alignment=ft.alignment.center),
             ft.Container(height=10),
-            primary_button("Create Account", do_register, width=280, icon=ft.Icons.PERSON_ADD),
+            ft.Container(content=primary_button("Create Account", do_register, width=350, icon=ft.Icons.PERSON_ADD), alignment=ft.alignment.center),
         ], spacing=12)
 
         page.add(
             ft.Container(
                 content=modern_card(register_content, padding=25),
-                padding=20
+                padding=20,
+                expand=True
             )
         )
 
@@ -598,9 +612,9 @@ def main(page: ft.Page):
             selected_index=current_admin_tab,
             animation_duration=300,
             tabs=[
-                ft.Tab(text="Community Reports", icon=ft.Icons.SUPERVISOR_ACCOUNT),
-                ft.Tab(text="User Management", icon=ft.Icons.PEOPLE),
-                ft.Tab(text="Activity Log", icon=ft.Icons.HISTORY),
+                ft.Tab(text="Reports", icon=ft.Icons.REPORT),
+                ft.Tab(text="Users", icon=ft.Icons.PEOPLE),
+                ft.Tab(text="Activity", icon=ft.Icons.HISTORY),
             ],
             expand=True
         )
@@ -667,10 +681,10 @@ def main(page: ft.Page):
             stats_cards_container.content = create_stats_cards()
             page.update()
 
-        def create_community_reports_tab():
+        def create_reports_tab():
             reports_list = ft.ListView(expand=True, spacing=6)
 
-            def load_community_reports():
+            def load_reports():
                 reports_list.controls.clear()
                 try:
                     conn = get_db_connection()
@@ -684,7 +698,13 @@ def main(page: ft.Page):
                     conn.close()
 
                     if not data:
-                        reports_list.controls.append(ft.Text("No community reports found.", color=ft.Colors.GREY_600))
+                        reports_list.controls.append(
+                            ft.Container(
+                                content=ft.Text("No reports found.", color=ft.Colors.GREY_600),
+                                padding=20,
+                                alignment=ft.alignment.center
+                            )
+                        )
                     else:
                         for r in data:
                             status_color = {
@@ -693,45 +713,47 @@ def main(page: ft.Page):
                                 "Resolved": ft.Colors.GREEN
                             }.get(r[6], ft.Colors.GREY)
 
-                            def create_delete_handler(rid=r[0]):
-                                return lambda e: show_delete_dialog(rid)
-
                             def create_detail_handler(item=r):
                                 return lambda e: open_report_detail(item)
 
                             has_photo = r[8] is not None
 
                             reports_list.controls.append(
-                                ft.ListTile(
-                                    leading=ft.Icon(ft.Icons.REPORT_PROBLEM, color=status_color),
-                                    title=ft.Text(r[2], weight=ft.FontWeight.W_600),
-                                    subtitle=ft.Text(f"By: {r[1]} • {r[3]} • {r[6]}" + (" 📷" if has_photo else "")),
-                                    trailing=ft.PopupMenuButton(
-                                        icon=ft.Icons.MORE_VERT,
-                                        items=[
-                                            ft.PopupMenuItem(
-                                                text="View Details",
-                                                on_click=create_detail_handler()
-                                            ),
-                                            ft.PopupMenuItem(
-                                                text="Mark In Progress",
-                                                on_click=lambda e, rid=r[0]: update_report_status(rid, "In Progress")
-                                            ),
-                                            ft.PopupMenuItem(
-                                                text="Mark Resolved",
-                                                on_click=lambda e, rid=r[0]: update_report_status(rid, "Resolved")
-                                            ),
-                                            ft.PopupMenuItem(
-                                                text="Delete",
-                                                on_click=create_delete_handler()
-                                            ),
-                                        ]
+                                ft.Card(
+                                    content=ft.Container(
+                                        content=ft.Column([
+                                            ft.Row([
+                                                ft.Icon(ft.Icons.REPORT_PROBLEM, color=status_color),
+                                                ft.Text(f"Report #{r[0]}", size=14, weight=ft.FontWeight.BOLD, expand=True),
+                                                status_badge(r[6]),
+                                            ]),
+                                            ft.Text(r[2], size=16, weight=ft.FontWeight.W_600),
+                                            ft.Text(f"By: {r[1]} • {r[3]}", size=14, color=ft.Colors.GREY_600),
+                                            ft.Text(f"Date: {r[5]}", size=12, color=ft.Colors.GREY_500),
+                                            ft.Row([
+                                                ft.Text("📷" if has_photo else "No photo", size=12, color=ft.Colors.GREY_500),
+                                                ft.Container(expand=True),
+                                                ft.FilledButton(
+                                                    "View Details",
+                                                    on_click=create_detail_handler(),
+                                                    style=ft.ButtonStyle(padding=10)
+                                                )
+                                            ])
+                                        ], spacing=8),
+                                        padding=15
                                     ),
+                                    margin=5
                                 )
                             )
                 except Exception as e:
-                    logger.error(f"Error loading community reports: {e}")
-                    reports_list.controls.append(ft.Text("Error loading reports.", color=ft.Colors.RED))
+                    logger.error(f"Error loading reports: {e}")
+                    reports_list.controls.append(
+                        ft.Container(
+                            content=ft.Text("Error loading reports.", color=ft.Colors.RED),
+                            padding=20,
+                            alignment=ft.alignment.center
+                        )
+                    )
                 page.update()
 
             def update_report_status(report_id, new_status):
@@ -752,33 +774,11 @@ def main(page: ft.Page):
                     cursor.close()
                     conn.close()
                     show_snack(f"Status updated to {new_status}!")
-                    load_community_reports()
+                    load_reports()
                     refresh_stats()
                 except Exception as e:
                     logger.error(f"Error updating report status: {e}")
                     show_snack("Error updating status", "#ef4444")
-
-            def delete_report(report_id):
-                try:
-                    conn = get_db_connection()
-                    cursor = conn.cursor()
-                    cursor.execute("SELECT problem_type, location FROM reports WHERE id=%s", (report_id,))
-                    report = cursor.fetchone()
-
-                    cursor.execute("DELETE FROM reports WHERE id=%s", (report_id,))
-                    conn.commit()
-
-                    if report:
-                        add_admin_log("DELETE", "report", report_id, f"Deleted: {report[0]} - {report[1]}")
-
-                    cursor.close()
-                    conn.close()
-                    show_snack("Report deleted successfully!")
-                    load_community_reports()
-                    refresh_stats()
-                except Exception as e:
-                    logger.error(f"Error deleting report: {e}")
-                    show_snack("Error deleting report", "#ef4444")
 
             def open_report_detail(item):
                 try:
@@ -794,21 +794,12 @@ def main(page: ft.Page):
                     created_at = item[9]
                     reporter_name = item[10]
 
-                    # Clean problem type and priority
-                    clean_problem_type = problem_type.split(" ", 1)[-1] if " " in problem_type else problem_type
-                    clean_priority = priority.replace("🟢 ", "").replace("🟡 ", "").replace("🔴 ", "").replace("🚨 ", "")
-
-                    # Format created_at datetime
-                    created_at_str = created_at.strftime("%Y-%m-%d %H:%M") if created_at else "N/A"
-
                     content_controls = [
                         ft.Row([
-                            ft.Text(f"Report #{report_id}", size=20, weight=ft.FontWeight.BOLD, color="#1e293b",
-                                    expand=True),
+                            ft.Text(f"Report #{report_id}", size=20, weight=ft.FontWeight.BOLD, color="#1e293b", expand=True),
                             status_badge(status),
                         ]),
                         ft.Container(height=10),
-
                         ft.Text("Reporter Information", size=16, weight=ft.FontWeight.W_600, color="#1e293b"),
                         ft.Container(
                             content=ft.Column([
@@ -828,14 +819,13 @@ def main(page: ft.Page):
                             border_radius=8,
                         ),
                         ft.Container(height=10),
-
                         ft.Text("Report Details", size=16, weight=ft.FontWeight.W_600, color="#1e293b"),
                         ft.Container(
                             content=ft.Column([
                                 ft.Row([
                                     ft.Icon(ft.Icons.CATEGORY, size=16, color="#64748b"),
                                     ft.Text("Problem Type:", size=14, color="#64748b", width=100),
-                                    ft.Text(clean_problem_type, size=14, color="#1e293b", expand=True),
+                                    ft.Text(problem_type, size=14, color="#1e293b", expand=True),
                                 ]),
                                 ft.Row([
                                     ft.Icon(ft.Icons.LOCATION_ON, size=16, color="#64748b"),
@@ -845,17 +835,12 @@ def main(page: ft.Page):
                                 ft.Row([
                                     ft.Icon(ft.Icons.FLAG, size=16, color="#64748b"),
                                     ft.Text("Priority:", size=14, color="#64748b", width=100),
-                                    priority_badge(clean_priority),
+                                    priority_badge(priority.replace("🟢 ", "").replace("🟡 ", "").replace("🔴 ", "").replace("🚨 ", "")),
                                 ]),
                                 ft.Row([
                                     ft.Icon(ft.Icons.CALENDAR_TODAY, size=16, color="#64748b"),
                                     ft.Text("Report Date:", size=14, color="#64748b", width=100),
                                     ft.Text(date, size=14, color="#1e293b", expand=True),
-                                ]),
-                                ft.Row([
-                                    ft.Icon(ft.Icons.SCHEDULE, size=16, color="#64748b"),
-                                    ft.Text("Created At:", size=14, color="#64748b", width=100),
-                                    ft.Text(created_at_str, size=14, color="#1e293b", expand=True),
                                 ]),
                             ], spacing=8),
                             padding=10,
@@ -863,7 +848,6 @@ def main(page: ft.Page):
                             border_radius=8,
                         ),
                         ft.Container(height=10),
-
                         ft.Text("Description", size=16, weight=ft.FontWeight.W_600, color="#1e293b"),
                         ft.Container(
                             content=ft.Text(issue, size=14, color="#475569"),
@@ -880,8 +864,8 @@ def main(page: ft.Page):
                             ft.Container(
                                 content=ft.Image(
                                     src_base64=photo_data,
-                                    width=380,
-                                    height=280,
+                                    width=300,
+                                    height=200,
                                     fit=ft.ImageFit.CONTAIN,
                                     border_radius=12,
                                 ),
@@ -889,62 +873,28 @@ def main(page: ft.Page):
                                 padding=10,
                                 bgcolor="#f8fafc",
                                 border_radius=12,
-                                border=ft.border.all(1, "#e2e8f0")
-                            )
-                        ])
-                    else:
-                        content_controls.extend([
-                            ft.Container(height=10),
-                            ft.Container(
-                                content=ft.Column([
-                                    ft.Row([
-                                        ft.Icon(ft.Icons.PHOTO_CAMERA, size=20, color="#94a3b8"),
-                                        ft.Text("No Photo Attached", size=16, weight=ft.FontWeight.W_600, color="#64748b"),
-                                    ]),
-                                    ft.Container(height=15),
-                                    ft.Icon(ft.Icons.PHOTO_CAMERA_OUTLINED, size=64, color="#cbd5e1"),
-                                    ft.Container(height=8),
-                                    ft.Text("No photo was attached to this report", size=14, color="#94a3b8", text_align=ft.TextAlign.CENTER),
-                                ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=0),
-                                padding=30,
-                                bgcolor="#f8fafc",
-                                border_radius=12,
-                                border=ft.border.all(1, "#e2e8f0"),
-                                alignment=ft.alignment.center
                             )
                         ])
 
                     content_controls.extend([
                         ft.Container(height=20),
                         ft.Row([
-                            secondary_button(
-                                "Mark In Progress",
-                                lambda e: [update_report_status(report_id, "In Progress"), close_dialog()],
-                                icon=ft.Icons.UPDATE
-                            ),
-                            secondary_button(
-                                "Mark Resolved",
-                                lambda e: [update_report_status(report_id, "Resolved"), close_dialog()],
-                                icon=ft.Icons.CHECK_CIRCLE
-                            ),
-                        ], alignment=ft.MainAxisAlignment.SPACE_EVENLY),
+                            secondary_button("Mark In Progress", lambda e: [update_report_status(report_id, "In Progress"), close_dialog()]),
+                            secondary_button("Mark Resolved", lambda e: [update_report_status(report_id, "Resolved"), close_dialog()]),
+                        ]),
                     ])
 
                     page.dialog = ft.AlertDialog(
                         modal=True,
-                        title=ft.Row([
-                            ft.Icon(ft.Icons.REPORT_PROBLEM, color="#2563eb"),
-                            ft.Text("Report Details", size=18, weight=ft.FontWeight.BOLD),
-                        ]),
+                        title=ft.Text("Report Details"),
                         content=ft.Container(
                             content=ft.Column(content_controls, spacing=12, scroll=ft.ScrollMode.ADAPTIVE),
-                            width=420,
-                            height=650
+                            width=400,
+                            height=500
                         ),
                         actions=[
-                            ft.TextButton("Close", on_click=lambda e: close_dialog())
-                        ],
-                        shape=ft.RoundedRectangleBorder(radius=16)
+                            ft.TextButton("Close", on_click=close_dialog)
+                        ]
                     )
                     page.dialog.open = True
                     page.update()
@@ -952,44 +902,22 @@ def main(page: ft.Page):
                     logger.error(f"Error opening report detail: {e}")
                     show_snack("Error loading report details", "#ef4444")
 
-            def show_delete_dialog(report_id):
-                def confirm_delete(e):
-                    delete_report(report_id)
-                    page.dialog.open = False
-                    page.update()
-
-                page.dialog = ft.AlertDialog(
-                    title=ft.Text("Confirm Delete"),
-                    content=ft.Text("Are you sure you want to delete this report? This action cannot be undone."),
-                    actions=[
-                        ft.TextButton("Cancel", on_click=lambda e: close_dialog()),
-                        ft.TextButton("Delete", on_click=confirm_delete, style=ft.ButtonStyle(color=ft.Colors.RED)),
-                    ]
-                )
-                page.dialog.open = True
-                page.update()
-
             def close_dialog(e=None):
                 page.dialog.open = False
                 page.update()
 
-            load_community_reports()
+            load_reports()
 
             return ft.Column([
                 ft.Row([
-                    ft.Text("Community Reports", size=20, weight=ft.FontWeight.BOLD, color="#1e293b", expand=True),
-                    ft.IconButton(
-                        icon=ft.Icons.REFRESH,
-                        on_click=lambda e: load_community_reports(),
-                        icon_color="#64748b",
-                        tooltip="Refresh"
-                    )
+                    ft.Text("Community Reports", size=20, weight=ft.FontWeight.BOLD),
+                    ft.IconButton(ft.Icons.REFRESH, on_click=lambda e: load_reports())
                 ]),
                 ft.Container(height=10),
                 reports_list
             ])
 
-        def create_user_management_tab():
+        def create_users_tab():
             users_list = ft.ListView(expand=True, spacing=6)
 
             def load_users():
@@ -997,125 +925,72 @@ def main(page: ft.Page):
                 try:
                     conn = get_db_connection()
                     cursor = conn.cursor()
-                    cursor.execute("SELECT id, username, email, phone, role, created_at FROM users ORDER BY id DESC")
+                    cursor.execute("SELECT id, username, email, role, created_at FROM users ORDER BY id DESC")
                     data = cursor.fetchall()
                     cursor.close()
                     conn.close()
 
                     if not data:
-                        users_list.controls.append(ft.Text("No users found.", color=ft.Colors.GREY_600))
+                        users_list.controls.append(
+                            ft.Container(
+                                content=ft.Text("No users found.", color=ft.Colors.GREY_600),
+                                padding=20,
+                                alignment=ft.alignment.center
+                            )
+                        )
                     else:
                         for u in data:
-                            role_color = ft.Colors.BLUE if u[4] == "admin" else ft.Colors.GREEN
-
-                            def create_delete_handler(uid=u[0]):
-                                return lambda e: show_delete_user_dialog(uid)
+                            role_color = ft.Colors.BLUE if u[3] == "admin" else ft.Colors.GREEN
 
                             users_list.controls.append(
-                                ft.ListTile(
-                                    leading=ft.Icon(ft.Icons.PERSON, color=role_color),
-                                    title=ft.Text(u[1], weight=ft.FontWeight.W_600),
-                                    subtitle=ft.Text(f"{u[2]} • {u[4]}"),
-                                    trailing=ft.PopupMenuButton(
-                                        icon=ft.Icons.MORE_VERT,
-                                        items=[
-                                            ft.PopupMenuItem(
-                                                text="Make Admin",
-                                                on_click=lambda e, uid=u[0]: update_user_role(uid, "admin")
-                                            ),
-                                            ft.PopupMenuItem(
-                                                text="Make User",
-                                                on_click=lambda e, uid=u[0]: update_user_role(uid, "user")
-                                            ),
-                                            ft.PopupMenuItem(
-                                                text="Delete User",
-                                                on_click=create_delete_handler()
-                                            ),
-                                        ]
+                                ft.Card(
+                                    content=ft.Container(
+                                        content=ft.Column([
+                                            ft.Row([
+                                                ft.Icon(ft.Icons.PERSON, color=role_color),
+                                                ft.Text(u[1], size=16, weight=ft.FontWeight.BOLD, expand=True),
+                                                ft.Container(
+                                                    content=ft.Text(u[3].upper(), size=12, color="white", weight=ft.FontWeight.BOLD),
+                                                    bgcolor=role_color,
+                                                    padding=ft.padding.symmetric(horizontal=8, vertical=4),
+                                                    border_radius=12
+                                                )
+                                            ]),
+                                            ft.Text(u[2], size=14, color=ft.Colors.GREY_600),
+                                            ft.Text(f"Joined: {u[4].strftime('%Y-%m-%d')}", size=12, color=ft.Colors.GREY_500),
+                                        ], spacing=8),
+                                        padding=15
                                     ),
+                                    margin=5
                                 )
                             )
                 except Exception as e:
                     logger.error(f"Error loading users: {e}")
-                    users_list.controls.append(ft.Text("Error loading users.", color=ft.Colors.RED))
-                page.update()
-
-            def update_user_role(user_id, new_role):
-                try:
-                    conn = get_db_connection()
-                    cursor = conn.cursor()
-                    cursor.execute("UPDATE users SET role=%s WHERE id=%s", (new_role, user_id))
-                    conn.commit()
-
-                    add_admin_log("UPDATE_ROLE", "user", user_id, f"Role changed to {new_role}")
-
-                    cursor.close()
-                    conn.close()
-                    show_snack(f"User role updated to {new_role}!")
-                    load_users()
-                except Exception as e:
-                    logger.error(f"Error updating user role: {e}")
-                    show_snack("Error updating user role", "#ef4444")
-
-            def delete_user(user_id):
-                try:
-                    conn = get_db_connection()
-                    cursor = conn.cursor()
-
-                    cursor.execute("SELECT username FROM users WHERE id=%s", (user_id,))
-                    username = cursor.fetchone()[0]
-
-                    cursor.execute("DELETE FROM users WHERE id=%s", (user_id,))
-                    conn.commit()
-
-                    add_admin_log("DELETE", "user", user_id, f"Deleted user: {username}")
-
-                    cursor.close()
-                    conn.close()
-                    show_snack("User deleted successfully!")
-                    load_users()
-                except Exception as e:
-                    logger.error(f"Error deleting user: {e}")
-                    show_snack("Error deleting user", "#ef4444")
-
-            def show_delete_user_dialog(user_id):
-                def confirm_delete(e):
-                    delete_user(user_id)
-                    page.dialog.open = False
-                    page.update()
-
-                page.dialog = ft.AlertDialog(
-                    title=ft.Text("Confirm Delete"),
-                    content=ft.Text("Are you sure you want to delete this user? This action cannot be undone."),
-                    actions=[
-                        ft.TextButton("Cancel", on_click=lambda e: close_dialog()),
-                        ft.TextButton("Delete", on_click=confirm_delete, style=ft.ButtonStyle(color=ft.Colors.RED)),
-                    ]
-                )
-                page.dialog.open = True
+                    users_list.controls.append(
+                        ft.Container(
+                            content=ft.Text("Error loading users.", color=ft.Colors.RED),
+                            padding=20,
+                            alignment=ft.alignment.center
+                        )
+                    )
                 page.update()
 
             load_users()
 
             return ft.Column([
                 ft.Row([
-                    ft.Text("User Management", size=20, weight=ft.FontWeight.BOLD, color="#1e293b", expand=True),
-                    ft.IconButton(
-                        icon=ft.Icons.REFRESH,
-                        on_click=lambda e: load_users(),
-                        icon_color="#64748b",
-                        tooltip="Refresh"
-                    )
+                    ft.Text("User Management", size=20, weight=ft.FontWeight.BOLD),
+                    ft.IconButton(ft.Icons.REFRESH, on_click=lambda e: load_users())
                 ]),
                 ft.Container(height=10),
                 users_list
             ])
 
-        def create_activity_log_tab():
-            logs_list = ft.ListView(expand=True, spacing=6)
+        def create_activity_tab():
+            activity_list = ft.ListView(expand=True, spacing=6)
 
-            def load_activity_logs():
-                logs_list.controls.clear()
+            def load_activity():
+                activity_list.controls.clear()
                 try:
                     conn = get_db_connection()
                     cursor = conn.cursor()
@@ -1128,7 +1003,13 @@ def main(page: ft.Page):
                     conn.close()
 
                     if not data:
-                        logs_list.controls.append(ft.Text("No activity logs found.", color=ft.Colors.GREY_600))
+                        activity_list.controls.append(
+                            ft.Container(
+                                content=ft.Text("No activity logs found.", color=ft.Colors.GREY_600),
+                                padding=20,
+                                alignment=ft.alignment.center
+                            )
+                        )
                     else:
                         for log in data:
                             action_color = {
@@ -1137,83 +1018,85 @@ def main(page: ft.Page):
                                 "UPDATE_ROLE": ft.Colors.ORANGE,
                             }.get(log[0], ft.Colors.GREEN)
 
-                            logs_list.controls.append(
-                                ft.ListTile(
-                                    leading=ft.Icon(ft.Icons.HISTORY, color=action_color),
-                                    title=ft.Text(log[0], weight=ft.FontWeight.W_600),
-                                    subtitle=ft.Text(f"{log[5]} • {log[1]} #{log[2] if log[2] else 'N/A'}"),
-                                    trailing=ft.Text(log[4].strftime("%m/%d %H:%M"), size=12, color=ft.Colors.GREY),
+                            activity_list.controls.append(
+                                ft.Card(
+                                    content=ft.Container(
+                                        content=ft.Column([
+                                            ft.Row([
+                                                ft.Icon(ft.Icons.HISTORY, color=action_color),
+                                                ft.Text(log[0], size=14, weight=ft.FontWeight.BOLD, expand=True),
+                                                ft.Text(log[5], size=12, color=ft.Colors.GREY_600),
+                                            ]),
+                                            ft.Text(f"{log[1]} #{log[2] if log[2] else 'N/A'}", size=12, color=ft.Colors.GREY_600),
+                                            ft.Text(log[3] if log[3] else "No details", size=12, color=ft.Colors.GREY_500),
+                                            ft.Text(log[4].strftime('%Y-%m-%d %H:%M'), size=10, color=ft.Colors.GREY_400),
+                                        ], spacing=6),
+                                        padding=12
+                                    ),
+                                    margin=5
                                 )
                             )
                 except Exception as e:
-                    logger.error(f"Error loading activity logs: {e}")
-                    logs_list.controls.append(ft.Text("Error loading activity logs.", color=ft.Colors.RED))
+                    logger.error(f"Error loading activity: {e}")
+                    activity_list.controls.append(
+                        ft.Container(
+                            content=ft.Text("Error loading activity logs.", color=ft.Colors.RED),
+                            padding=20,
+                            alignment=ft.alignment.center
+                        )
+                    )
                 page.update()
 
-            load_activity_logs()
+            load_activity()
 
             return ft.Column([
                 ft.Row([
-                    ft.Text("Activity Log", size=20, weight=ft.FontWeight.BOLD, color="#1e293b", expand=True),
-                    ft.IconButton(
-                        icon=ft.Icons.REFRESH,
-                        on_click=lambda e: load_activity_logs(),
-                        icon_color="#64748b",
-                        tooltip="Refresh"
-                    )
+                    ft.Text("Activity Log", size=20, weight=ft.FontWeight.BOLD),
+                    ft.IconButton(ft.Icons.REFRESH, on_click=lambda e: load_activity())
                 ]),
                 ft.Container(height=10),
-                logs_list
+                activity_list
             ])
 
         def update_admin_content():
+            content_area.controls.clear()
             if current_admin_tab == 0:
-                admin_content.content = create_community_reports_tab()
+                content_area.controls.append(create_reports_tab())
             elif current_admin_tab == 1:
-                admin_content.content = create_user_management_tab()
+                content_area.controls.append(create_users_tab())
             elif current_admin_tab == 2:
-                admin_content.content = create_activity_log_tab()
+                content_area.controls.append(create_activity_tab())
             page.update()
 
-        admin_content = ft.Container(
-            content=create_community_reports_tab(),
-            expand=True
-        )
+        content_area = ft.Column(scroll=ft.ScrollMode.ADAPTIVE, expand=True)
 
         stats_cards_container.content = create_stats_cards()
+        update_admin_content()
 
-        header = ft.Container(
-            content=ft.Row([
-                ft.Column([
-                    ft.Text("Admin Dashboard", size=24, weight=ft.FontWeight.BOLD, color="#1e293b"),
-                    ft.Text("Manage community reports and users", size=14, color="#64748b"),
-                ], expand=True),
-                ft.IconButton(
-                    icon=ft.Icons.LOGOUT,
-                    on_click=lambda e: [logout(), show_snack("Logged out successfully!")],
-                    icon_color="#64748b",
-                    tooltip="Logout"
-                )
-            ]),
-            padding=20,
-            bgcolor="white",
-            border_radius=16,
-            margin=ft.margin.only(bottom=10)
-        )
+        def logout(e):
+            current_user["id"] = None
+            current_user["username"] = None
+            current_user["role"] = None
+            login_screen()
 
         page.add(
             ft.Column([
-                header,
-                ft.Container(height=10),
-                stats_cards_container,
+                ft.Container(
+                    content=ft.Row([
+                        ft.Column([
+                            ft.Text("Admin Dashboard", size=24, weight=ft.FontWeight.BOLD),
+                            ft.Text("Manage community reports", size=14, color=ft.Colors.GREY_600),
+                        ], expand=True),
+                        ft.IconButton(ft.Icons.LOGOUT, on_click=logout, tooltip="Logout")
+                    ]),
+                    padding=20
+                ),
+                ft.Container(content=stats_cards_container, padding=ft.padding.symmetric(horizontal=20)),
                 ft.Container(height=10),
                 ft.Container(
                     content=ft.Column([
                         admin_tabs,
-                        ft.Container(
-                            content=admin_content,
-                            expand=True
-                        )
+                        ft.Container(content=content_area, expand=True)
                     ], expand=True),
                     expand=True
                 )
@@ -1223,375 +1106,47 @@ def main(page: ft.Page):
     def user_dashboard_screen():
         page.clean()
 
-        stats_cards_container = ft.Container()
-        reports_list = ft.ListView(expand=True, spacing=6)
-
-        def create_stats_cards():
-            stats = get_report_stats()
-            return ft.Row([
-                ft.Container(
-                    content=ft.Column([
-                        ft.Icon(ft.Icons.REPORT, color=ft.Colors.BLUE_500),
-                        ft.Text("My Reports", size=12),
-                        ft.Text(str(stats['my_reports']), size=16, weight=ft.FontWeight.BOLD)
-                    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-                    padding=10,
-                    bgcolor=ft.Colors.BLUE_50,
-                    border_radius=10,
-                    expand=True
-                ),
-                ft.Container(
-                    content=ft.Column([
-                        ft.Icon(ft.Icons.PENDING_ACTIONS, color=ft.Colors.ORANGE),
-                        ft.Text("Pending", size=12),
-                        ft.Text(str(stats['pending']), size=16, weight=ft.FontWeight.BOLD)
-                    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-                    padding=10,
-                    bgcolor=ft.Colors.ORANGE_50,
-                    border_radius=10,
-                    expand=True
-                ),
-                ft.Container(
-                    content=ft.Column([
-                        ft.Icon(ft.Icons.TRENDING_UP, color=ft.Colors.BLUE_700),
-                        ft.Text("In Progress", size=12),
-                        ft.Text(str(stats['in_progress']), size=16, weight=ft.FontWeight.BOLD)
-                    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-                    padding=10,
-                    bgcolor=ft.Colors.BLUE_50,
-                    border_radius=10,
-                    expand=True
-                ),
-                ft.Container(
-                    content=ft.Column([
-                        ft.Icon(ft.Icons.CHECK_CIRCLE, color=ft.Colors.GREEN),
-                        ft.Text("Resolved", size=12),
-                        ft.Text(str(stats['resolved']), size=16, weight=ft.FontWeight.BOLD)
-                    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-                    padding=10,
-                    bgcolor=ft.Colors.GREEN_50,
-                    border_radius=10,
-                    expand=True
-                ),
-            ])
-
-        def refresh_stats():
-            stats_cards_container.content = create_stats_cards()
-            page.update()
-
-        def load_my_reports():
-            reports_list.controls.clear()
-            if not current_user["id"]:
-                return
-
-            try:
-                conn = get_db_connection()
-                cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT id, problem_type, location, issue, date, status, priority, photo_data, created_at
-                    FROM reports WHERE user_id=%s ORDER BY id DESC
-                """, (current_user["id"],))
-                data = cursor.fetchall()
-                cursor.close()
-                conn.close()
-
-                if not data:
-                    reports_list.controls.append(
-                        ft.Container(
-                            content=ft.Column([
-                                ft.Icon(ft.Icons.REPORT_PROBLEM_OUTLINED, size=48, color="#cbd5e1"),
-                                ft.Text("No reports yet", size=16, color="#64748b", weight=ft.FontWeight.W_500),
-                                ft.Text("Submit your first community issue report!", size=14, color="#94a3b8"),
-                                ft.Container(height=10),
-                                primary_button("Report Issue", lambda e: report_issue_screen(), icon=ft.Icons.ADD)
-                            ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=8),
-                            padding=40,
-                            alignment=ft.alignment.center
-                        )
-                    )
-                else:
-                    for r in data:
-                        has_photo = r[7] is not None
-
-                        def create_detail_handler(item=r):
-                            return lambda e: open_report_detail(item)
-
-                        reports_list.controls.append(
-                            ft.ListTile(
-                                leading=ft.Icon(ft.Icons.REPORT_PROBLEM, color={
-                                    "Pending": ft.Colors.ORANGE,
-                                    "In Progress": ft.Colors.BLUE,
-                                    "Resolved": ft.Colors.GREEN
-                                }.get(r[5], ft.Colors.GREY)),
-                                title=ft.Text(r[1], weight=ft.FontWeight.W_600),
-                                subtitle=ft.Text(f"{r[2]} • {r[5]}" + (" 📷" if has_photo else "")),
-                                trailing=ft.Row([
-                                    status_badge(r[5]),
-                                    ft.IconButton(
-                                        icon=ft.Icons.CHEVRON_RIGHT,
-                                        on_click=create_detail_handler(),
-                                        icon_color="#64748b",
-                                        icon_size=20
-                                    )
-                                ], width=100, spacing=0),
-                                on_click=create_detail_handler()
-                            )
-                        )
-            except Exception as e:
-                logger.error(f"Error loading reports: {e}")
-                reports_list.controls.append(ft.Text("Error loading reports.", color=ft.Colors.RED))
-            page.update()
-
-        def open_report_detail(item):
-            try:
-                report_id = item[0]
-                problem_type = item[1]
-                location = item[2]
-                issue = item[3]
-                date = item[4]
-                status = item[5]
-                priority = item[6]
-                photo_data = item[7]
-                created_at = item[8]
-
-                # Clean problem type and priority
-                clean_problem_type = problem_type.split(" ", 1)[-1] if " " in problem_type else problem_type
-                clean_priority = priority.replace("🟢 ", "").replace("🟡 ", "").replace("🔴 ", "").replace("🚨 ", "")
-
-                # Format created_at datetime
-                created_at_str = created_at.strftime("%Y-%m-%d %H:%M") if created_at else "N/A"
-
-                content_controls = [
-                    ft.Row([
-                        ft.Text(f"Report #{report_id}", size=20, weight=ft.FontWeight.BOLD, color="#1e293b", expand=True),
-                        status_badge(status),
-                    ]),
-                    ft.Container(height=10),
-
-                    ft.Text("Report Details", size=16, weight=ft.FontWeight.W_600, color="#1e293b"),
-                    ft.Container(
-                        content=ft.Column([
-                            ft.Row([
-                                ft.Icon(ft.Icons.CATEGORY, size=16, color="#64748b"),
-                                ft.Text("Problem Type:", size=14, color="#64748b", width=100),
-                                ft.Text(clean_problem_type, size=14, color="#1e293b", expand=True),
-                            ]),
-                            ft.Row([
-                                ft.Icon(ft.Icons.LOCATION_ON, size=16, color="#64748b"),
-                                ft.Text("Location:", size=14, color="#64748b", width=100),
-                                ft.Text(location, size=14, color="#1e293b", expand=True),
-                            ]),
-                            ft.Row([
-                                ft.Icon(ft.Icons.FLAG, size=16, color="#64748b"),
-                                ft.Text("Priority:", size=14, color="#64748b", width=100),
-                                priority_badge(clean_priority),
-                            ]),
-                            ft.Row([
-                                ft.Icon(ft.Icons.CALENDAR_TODAY, size=16, color="#64748b"),
-                                ft.Text("Report Date:", size=14, color="#64748b", width=100),
-                                ft.Text(date, size=14, color="#1e293b", expand=True),
-                            ]),
-                            ft.Row([
-                                ft.Icon(ft.Icons.SCHEDULE, size=16, color="#64748b"),
-                                ft.Text("Created At:", size=14, color="#64748b", width=100),
-                                ft.Text(created_at_str, size=14, color="#1e293b", expand=True),
-                            ]),
-                        ], spacing=8),
-                        padding=10,
-                        bgcolor="#f8fafc",
-                        border_radius=8,
-                    ),
-                    ft.Container(height=10),
-
-                    ft.Text("Description", size=16, weight=ft.FontWeight.W_600, color="#1e293b"),
-                    ft.Container(
-                        content=ft.Text(issue, size=14, color="#475569"),
-                        padding=15,
-                        bgcolor="#f8fafc",
-                        border_radius=8,
-                    ),
-                ]
-
-                if photo_data:
-                    content_controls.extend([
-                        ft.Container(height=10),
-                        ft.Text("Attached Photo", size=16, weight=ft.FontWeight.W_600, color="#1e293b"),
-                        ft.Container(
-                            content=ft.Image(
-                                src_base64=photo_data,
-                                width=380,
-                                height=280,
-                                fit=ft.ImageFit.CONTAIN,
-                                border_radius=12,
-                            ),
-                            alignment=ft.alignment.center,
-                            padding=10,
-                            bgcolor="#f8fafc",
-                            border_radius=12,
-                            border=ft.border.all(1, "#e2e8f0")
-                        )
-                    ])
-                else:
-                    content_controls.extend([
-                        ft.Container(height=10),
-                        ft.Container(
-                            content=ft.Column([
-                                ft.Row([
-                                    ft.Icon(ft.Icons.PHOTO_CAMERA, size=20, color="#94a3b8"),
-                                    ft.Text("No Photo Attached", size=16, weight=ft.FontWeight.W_600, color="#64748b"),
-                                ]),
-                                ft.Container(height=15),
-                                ft.Icon(ft.Icons.PHOTO_CAMERA_OUTLINED, size=64, color="#cbd5e1"),
-                                ft.Container(height=8),
-                                ft.Text("No photo was attached to this report", size=14, color="#94a3b8", text_align=ft.TextAlign.CENTER),
-                            ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=0),
-                            padding=30,
-                            bgcolor="#f8fafc",
-                            border_radius=12,
-                            border=ft.border.all(1, "#e2e8f0"),
-                            alignment=ft.alignment.center
-                        )
-                    ])
-
-                page.dialog = ft.AlertDialog(
-                    modal=True,
-                    title=ft.Row([
-                        ft.Icon(ft.Icons.REPORT_PROBLEM, color="#2563eb"),
-                        ft.Text("Report Details", size=18, weight=ft.FontWeight.BOLD),
-                    ]),
-                    content=ft.Container(
-                        content=ft.Column(content_controls, spacing=12, scroll=ft.ScrollMode.ADAPTIVE),
-                        width=420,
-                        height=650
-                    ),
-                    actions=[
-                        ft.TextButton("Close", on_click=lambda e: close_dialog())
-                    ],
-                    shape=ft.RoundedRectangleBorder(radius=16)
-                )
-                page.dialog.open = True
-                page.update()
-            except Exception as e:
-                logger.error(f"Error opening report detail: {e}")
-                show_snack("Error loading report details", "#ef4444")
-
-        def close_dialog(e=None):
-            page.dialog.open = False
-            page.update()
-
-        def logout(e=None):
-            current_user["id"] = None
-            current_user["username"] = None
-            current_user["role"] = None
-            login_screen()
-
-        stats_cards_container.content = create_stats_cards()
-        load_my_reports()
-
-        header = ft.Container(
-            content=ft.Row([
-                ft.Column([
-                    ft.Text(f"Welcome back, {current_user['username']}! 👋", size=20, weight=ft.FontWeight.BOLD, color="#1e293b"),
-                    ft.Text("Community Issue Reporting", size=14, color="#64748b"),
-                ], expand=True),
-                ft.IconButton(
-                    icon=ft.Icons.LOGOUT,
-                    on_click=logout,
-                    icon_color="#64748b",
-                    tooltip="Logout"
-                )
-            ]),
-            padding=20,
-            bgcolor="white",
-            border_radius=16,
-            margin=ft.margin.only(bottom=10)
-        )
-
-        page.add(
-            ft.Column([
-                header,
-                ft.Container(height=10),
-                stats_cards_container,
-                ft.Container(height=10),
-                ft.Row([
-                    ft.Text("My Reports", size=18, weight=ft.FontWeight.BOLD, color="#1e293b", expand=True),
-                    ft.IconButton(
-                        icon=ft.Icons.REFRESH,
-                        on_click=lambda e: load_my_reports(),
-                        icon_color="#64748b",
-                        tooltip="Refresh"
-                    )
-                ]),
-                ft.Container(height=10),
-                ft.Container(
-                    content=reports_list,
-                    expand=True
-                ),
-                ft.Container(
-                    content=primary_button("Report New Issue", lambda e: report_issue_screen(), icon=ft.Icons.ADD),
-                    padding=20
-                )
-            ], expand=True)
-        )
-
-    def report_issue_screen():
-        page.clean()
-
-        # Reset photo state when entering report screen
-        photo_state.photo_data = None
-        photo_state.photo_name = None
-
-        name = modern_textfield(
-            label="Your Name",
-            prefix_icon=ft.Icons.PERSON,
-            hint_text="Enter your full name"
-        )
+        # Create report form components
         problem_type = ft.Dropdown(
             label="Problem Type",
             options=[
-                ft.dropdown.Option("🚗 Traffic - Traffic congestion or road blockage"),
-                ft.dropdown.Option("🗑️ Waste - Garbage accumulation or improper disposal"),
-                ft.dropdown.Option("💧 Water - Water supply issues or leaks"),
-                ft.dropdown.Option("⚡ Power - Electricity outage or power issues"),
-                ft.dropdown.Option("🛣️ Road - Potholes or road damage"),
-                ft.dropdown.Option("🌳 Environment - Parks, trees, or public spaces"),
-                ft.dropdown.Option("🏢 Public Facility - Government buildings or services"),
-                ft.dropdown.Option("🚨 Emergency - Urgent public safety issue"),
-                ft.dropdown.Option("📝 Other - Other community issues"),
+                ft.dropdown.Option("🚗 Traffic Issue"),
+                ft.dropdown.Option("🗑️ Waste Management"),
+                ft.dropdown.Option("💧 Water Problem"),
+                ft.dropdown.Option("⚡ Power Outage"),
+                ft.dropdown.Option("🛣️ Road Damage"),
+                ft.dropdown.Option("🌳 Environmental Issue"),
+                ft.dropdown.Option("🏢 Public Facility"),
+                ft.dropdown.Option("🚨 Emergency"),
+                ft.dropdown.Option("📝 Other"),
             ],
-            border_radius=12,
-            border_color="#e2e8f0",
-            focused_border_color="#2563eb"
+            width=350
         )
+        
         location = modern_textfield(
             label="Location",
-            prefix_icon=ft.Icons.LOCATION_ON,
+            width=350,
             hint_text="Enter the exact location"
         )
+        
         issue = modern_textfield(
             label="Issue Description",
             multiline=True,
             min_lines=3,
-            max_lines=5,
-            prefix_icon=ft.Icons.DESCRIPTION,
-            hint_text="Describe the issue in detail..."
+            width=350,
+            hint_text="Describe the problem in detail..."
         )
-        date = modern_textfield(
-            label="Date of Issue",
-            prefix_icon=ft.Icons.CALENDAR_TODAY,
-            hint_text="YYYY-MM-DD or 'Today'"
-        )
+        
         priority = ft.Dropdown(
-            label="Priority Level",
+            label="Priority",
             options=[
-                ft.dropdown.Option("🟢 Low - Minor issue, no immediate action needed"),
-                ft.dropdown.Option("🟡 Medium - Needs attention within a few days"),
-                ft.dropdown.Option("🔴 High - Requires immediate attention"),
-                ft.dropdown.Option("🚨 Emergency - Critical issue needing urgent action"),
+                ft.dropdown.Option("🟢 Low"),
+                ft.dropdown.Option("🟡 Medium"),
+                ft.dropdown.Option("🔴 High"),
+                ft.dropdown.Option("🚨 Emergency"),
             ],
-            border_radius=12,
-            border_color="#e2e8f0",
-            focused_border_color="#2563eb"
+            value="🟡 Medium",
+            width=350
         )
 
         photo_display = ft.Container(
@@ -1638,98 +1193,98 @@ def main(page: ft.Page):
             page.update()
 
         def submit_report(e):
-            if not all([name.value, problem_type.value, location.value, issue.value, date.value, priority.value]):
+            if not all([problem_type.value, location.value, issue.value]):
                 show_snack("Please fill in all required fields!", "#f59e0b")
                 return
 
             try:
+                date = datetime.now().strftime("%Y-%m-%d %H:%M")
+                
                 conn = get_db_connection()
                 cursor = conn.cursor()
-
-                # Clean the problem type and priority (remove emoji and description)
-                clean_problem_type = problem_type.value.split(" ", 1)[-1] if " " in problem_type.value else problem_type.value
-                clean_priority = priority.value.split(" ", 1)[0] if " " in priority.value else priority.value
-
+                
                 cursor.execute("""
                     INSERT INTO reports (user_id, name, problem_type, location, issue, date, priority, photo_data)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 """, (
                     current_user["id"],
-                    name.value,
-                    clean_problem_type,
+                    current_user["username"],
+                    problem_type.value,
                     location.value,
                     issue.value,
-                    date.value,
-                    clean_priority,
+                    date,
+                    priority.value,
                     photo_state.photo_data
                 ))
-
+                
                 conn.commit()
                 cursor.close()
                 conn.close()
 
-                show_snack("Report submitted successfully! 🎉")
-                user_dashboard_screen()
+                # Reset form
+                problem_type.value = None
+                location.value = ""
+                issue.value = ""
+                priority.value = "🟡 Medium"
+                photo_state.photo_data = None
+                photo_state.photo_name = None
+                update_photo_display()
+                
+                show_snack("Report submitted successfully! ✅")
+                
+            except Exception as ex:
+                logger.error(f"Submit report error: {str(ex)}")
+                show_snack(f"Error submitting report: {str(ex)}", "#ef4444")
 
-            except Exception as e:
-                logger.error(f"Error submitting report: {e}")
-                show_snack("Error submitting report. Please try again.", "#ef4444")
-
-        def go_back(e):
-            user_dashboard_screen()
-
-        report_content = ft.Column([
-            ft.Row([
-                ft.IconButton(
-                    icon=ft.Icons.ARROW_BACK,
-                    on_click=go_back,
-                    icon_color="#64748b"
-                ),
-                ft.Text("Report Community Issue", size=20, weight=ft.FontWeight.BOLD, color="#1e293b", expand=True),
-            ]),
-            ft.Container(height=20),
-            name,
-            problem_type,
-            location,
-            issue,
-            date,
-            priority,
-            ft.Container(height=10),
-            ft.Text("Add Photo (Optional)", size=16, weight=ft.FontWeight.W_600, color="#1e293b"),
-            ft.Text("Take a photo or upload from gallery", size=14, color="#64748b"),
-            ft.Container(height=10),
-            ft.Row([
-                secondary_button("Take Photo", open_camera_picker, icon=ft.Icons.CAMERA_ALT),
-                secondary_button("Upload Photo", open_file_picker, icon=ft.Icons.PHOTO_LIBRARY),
-            ]),
-            ft.Container(height=10),
-            ft.Stack([
-                photo_display,
-                photo_preview
-            ]),
-            ft.Container(height=20),
-            primary_button("Submit Report", submit_report, icon=ft.Icons.SEND),
-        ], spacing=12)
-
-        page.add(
-            ft.Container(
-                content=modern_card(report_content, padding=25),
-                padding=20
-            )
-        )
+        def logout(e):
+            current_user["id"] = None
+            current_user["username"] = None
+            current_user["role"] = None
+            login_screen()
 
         # Initialize photo display
         update_photo_display()
 
-    def logout():
-        current_user["id"] = None
-        current_user["username"] = None
-        current_user["role"] = None
-        login_screen()
+        page.add(
+            ft.Column([
+                ft.Container(
+                    content=ft.Row([
+                        ft.Column([
+                            ft.Text(f"Welcome, {current_user['username']}! 👋", size=20, weight=ft.FontWeight.BOLD),
+                            ft.Text("Report community issues", size=14, color=ft.Colors.GREY_600),
+                        ], expand=True),
+                        ft.IconButton(ft.Icons.LOGOUT, on_click=logout, tooltip="Logout")
+                    ]),
+                    padding=20
+                ),
+                
+                ft.Container(
+                    content=ft.Column([
+                        ft.Text("New Report", size=18, weight=ft.FontWeight.BOLD),
+                        ft.Container(height=10),
+                        ft.Container(content=problem_type, alignment=ft.alignment.center),
+                        ft.Container(content=location, alignment=ft.alignment.center),
+                        ft.Container(content=issue, alignment=ft.alignment.center),
+                        ft.Container(content=priority, alignment=ft.alignment.center),
+                        ft.Container(height=10),
+                        ft.Text("Add Photo (Optional)", size=16, weight=ft.FontWeight.W_600),
+                        ft.Row([
+                            secondary_button("Take Photo", open_camera_picker),
+                            secondary_button("Upload Photo", open_file_picker),
+                        ], alignment=ft.MainAxisAlignment.CENTER),
+                        ft.Container(height=10),
+                        ft.Stack([photo_display, photo_preview]),
+                        ft.Container(height=20),
+                        ft.Container(content=primary_button("Submit Report", submit_report, width=350), alignment=ft.alignment.center),
+                    ], spacing=12),
+                    padding=20
+                )
+            ], scroll=ft.ScrollMode.ADAPTIVE)
+        )
 
     # Start with login screen
     login_screen()
 
 # Run the app
 if __name__ == "__main__":
-    ft.app(target=main)
+    ft.app(target=main, view=ft.WEB_BROWSER, port=8501)
