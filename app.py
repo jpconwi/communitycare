@@ -387,6 +387,11 @@ def main(page: ft.Page):
     # Add file pickers to page overlay
     page.overlay.extend([file_picker, camera_picker])
 
+    def update_photo_display():
+        """Update the photo display in the user dashboard"""
+        # This function will be defined in user_dashboard_screen
+        pass
+
     def login_screen():
         page.clean()
 
@@ -753,6 +758,9 @@ def main(page: ft.Page):
                     update_report_status(report_id, "Resolved")
                     close_dialog()
 
+                # Format created_at datetime
+                created_at_str = created_at.strftime("%Y-%m-%d %H:%M") if created_at else "N/A"
+
                 content_controls = [
                     ft.Row([
                         ft.Text(f"Report #{report_id}", size=20, weight=ft.FontWeight.BOLD, color="#1e293b",
@@ -807,8 +815,7 @@ def main(page: ft.Page):
                             ft.Row([
                                 ft.Icon(ft.Icons.SCHEDULE, size=16, color="#64748b"),
                                 ft.Text("Created At:", size=14, color="#64748b", width=100),
-                                ft.Text(created_at[:16] if created_at else "N/A", size=14, color="#1e293b",
-                                        expand=True),
+                                ft.Text(created_at_str, size=14, color="#1e293b", expand=True),
                             ]),
                         ], spacing=8),
                         padding=10,
@@ -829,47 +836,17 @@ def main(page: ft.Page):
                 if photo_data:
                     content_controls.extend([
                         ft.Container(height=10),
+                        ft.Text("Attached Photo", size=16, weight=ft.FontWeight.W_600, color="#1e293b"),
                         ft.Container(
-                            content=ft.Column([
-                                ft.Row([
-                                    ft.Icon(ft.Icons.PHOTO_CAMERA, size=20, color="#2563eb"),
-                                    ft.Text("Attached Photo", size=16, weight=ft.FontWeight.W_600, color="#1e293b"),
-                                ]),
-                                ft.Container(height=8),
-
-                                ft.Container(
-                                    content=ft.Column([
-                                        ft.Container(
-                                            content=ft.Image(
-                                                src_base64=photo_data,
-                                                width=380,
-                                                height=280,
-                                                fit=ft.ImageFit.CONTAIN,
-                                                border_radius=12,
-                                                repeat=ft.ImageRepeat.NO_REPEAT,
-                                                gapless_playback=True,
-                                            ),
-                                            border=ft.border.all(2, "#e2e8f0"),
-                                            border_radius=12,
-                                            padding=2,
-                                            bgcolor="white",
-                                            shadow=ft.BoxShadow(
-                                                spread_radius=1,
-                                                blur_radius=10,
-                                                color=ft.Colors.BLACK12,
-                                                offset=ft.Offset(0, 2)
-                                            )
-                                        ),
-                                        ft.Container(height=8),
-                                        ft.Row([
-                                            ft.Icon(ft.Icons.INFO_OUTLINED, size=14, color="#64748b"),
-                                            ft.Text("Photo provided by reporter", size=12, color="#64748b"),
-                                        ], alignment=ft.MainAxisAlignment.CENTER),
-                                    ], spacing=0),
-                                    alignment=ft.alignment.center,
-                                )
-                            ], spacing=0),
-                            padding=15,
+                            content=ft.Image(
+                                src_base64=photo_data,
+                                width=380,
+                                height=280,
+                                fit=ft.ImageFit.CONTAIN,
+                                border_radius=12,
+                            ),
+                            alignment=ft.alignment.center,
+                            padding=10,
                             bgcolor="#f8fafc",
                             border_radius=12,
                             border=ft.border.all(1, "#e2e8f0")
@@ -1099,12 +1076,15 @@ def main(page: ft.Page):
                             "UPDATE_ROLE": ft.Colors.ORANGE
                         }.get(log[2], ft.Colors.GREEN)
 
+                        # Convert datetime to string for display
+                        created_at_str = log[6].strftime("%Y-%m-%d %H:%M")
+
                         logs_list.controls.append(
                             ft.ListTile(
                                 leading=ft.Icon(ft.Icons.HISTORY, color=icon_color),
                                 title=ft.Text(log[2], weight=ft.FontWeight.W_600, color=icon_color),
                                 subtitle=ft.Text(f"By {log[1]} • {log[3]} #{log[4] if log[4] else 'N/A'}"),
-                                trailing=ft.Text(log[6][:16], size=12, color=ft.Colors.GREY_600),
+                                trailing=ft.Text(created_at_str, size=12, color=ft.Colors.GREY_600),
                             )
                         )
                 page.update()
@@ -1540,11 +1520,14 @@ def main(page: ft.Page):
                 )
             else:
                 for notification in notifications:
+                    # Convert datetime to string for display
+                    created_at_str = notification[1].strftime("%Y-%m-%d %H:%M")
+                    
                     notifications_list.controls.append(
                         modern_card(
                             ft.Column([
                                 ft.Text(notification[0], size=14, color="#1e293b"),
-                                ft.Text(notification[1][:16], size=12, color="#64748b"),
+                                ft.Text(created_at_str, size=12, color="#64748b"),
                             ], spacing=4)
                         )
                     )
