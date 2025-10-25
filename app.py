@@ -133,6 +133,15 @@ def main(page: ft.Page):
     page.assets_dir = "static"
     page.update()
 
+    # PhotoState class for managing photo data
+    class PhotoState:
+        def __init__(self):
+            self.photo_data = None
+            self.photo_name = None
+
+    # Global photo_state instance
+    photo_state = PhotoState()
+
     def show_snack(message: str, color: str = "#10b981"):
         page.snack_bar = ft.SnackBar(
             content=ft.Text(message, color="white"),
@@ -1218,13 +1227,6 @@ def main(page: ft.Page):
     def user_dashboard_screen():
         page.clean()
 
-        class PhotoState:
-            def __init__(self):
-                self.photo_data = None
-                self.photo_name = None
-
-        photo_state = PhotoState()
-
         problem_type = ft.Dropdown(
             label="Problem Type*",
             width=280,
@@ -1470,7 +1472,9 @@ def main(page: ft.Page):
                 location.value = ""
                 issue.value = ""
                 priority.value = "🟡 Medium"
-                clear_photo(None)
+                photo_state.photo_data = None
+                photo_state.photo_name = None
+                update_photo_display()
 
                 show_snack("Report submitted successfully! ✅") 
                 load_user_reports()
@@ -1586,6 +1590,8 @@ def main(page: ft.Page):
             show_snack("See you soon! 👋")
             login_screen()
 
+        # Initialize photo display and load reports
+        update_photo_display()
         load_user_reports()
 
         notification_count = get_notifications_count()
