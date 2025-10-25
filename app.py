@@ -411,6 +411,14 @@ def main(page: ft.Page):
         )
 
         def do_login(e):
+            if not email.value or not password.value:
+                show_snack("Please enter both email and password!", "#f59e0b")
+                return
+                
+            if not validate_email(email.value):
+                show_snack("Please enter a valid email address!", "#f59e0b")
+                return
+
             conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute("SELECT id, username, role, email FROM users WHERE email=%s AND password=%s",
@@ -429,7 +437,7 @@ def main(page: ft.Page):
                 else:
                     user_dashboard_screen()
             else:
-                show_snack("Invalid email or password!", "#ef4444")
+                show_snack("Invalid email or password! Please try again.", "#ef4444")
 
         def go_register(e):
             register_screen()
@@ -650,12 +658,6 @@ def main(page: ft.Page):
                             "Resolved": ft.Colors.GREEN
                         }.get(r[6], ft.Colors.GREY)
 
-                        def create_status_handler(rid=r[0], status="In Progress"):
-                            return lambda e: update_report_status(rid, status)
-
-                        def create_resolved_handler(rid=r[0]):
-                            return lambda e: update_report_status(rid, "Resolved")
-
                         def create_delete_handler(rid=r[0]):
                             return lambda e: show_delete_dialog(rid)
 
@@ -678,11 +680,11 @@ def main(page: ft.Page):
                                         ),
                                         ft.PopupMenuItem(
                                             text="Mark In Progress",
-                                            on_click=create_status_handler()
+                                            on_click=lambda e, rid=r[0]: update_report_status(rid, "In Progress")
                                         ),
                                         ft.PopupMenuItem(
                                             text="Mark Resolved",
-                                            on_click=create_resolved_handler()
+                                            on_click=lambda e, rid=r[0]: update_report_status(rid, "Resolved")
                                         ),
                                         ft.PopupMenuItem(
                                             text="Delete",
@@ -748,15 +750,6 @@ def main(page: ft.Page):
                 # Clean problem type and priority
                 clean_problem_type = problem_type.split(" ", 1)[-1] if " " in problem_type else problem_type
                 clean_priority = priority.replace("🟢 ", "").replace("🟡 ", "").replace("🔴 ", "").replace("🚨 ", "")
-
-                # Create helper functions for button actions
-                def mark_in_progress_and_close():
-                    update_report_status(report_id, "In Progress")
-                    close_dialog()
-
-                def mark_resolved_and_close():
-                    update_report_status(report_id, "Resolved")
-                    close_dialog()
 
                 # Format created_at datetime
                 created_at_str = created_at.strftime("%Y-%m-%d %H:%M") if created_at else "N/A"
@@ -879,12 +872,12 @@ def main(page: ft.Page):
                     ft.Row([
                         secondary_button(
                             "Mark In Progress",
-                            lambda e: mark_in_progress_and_close(),
+                            lambda e: [update_report_status(report_id, "In Progress"), close_dialog()],
                             icon=ft.Icons.UPDATE
                         ),
                         secondary_button(
                             "Mark Resolved",
-                            lambda e: mark_resolved_and_close(),
+                            lambda e: [update_report_status(report_id, "Resolved"), close_dialog()],
                             icon=ft.Icons.CHECK_CIRCLE
                         ),
                     ], alignment=ft.MainAxisAlignment.SPACE_EVENLY),
@@ -1318,6 +1311,9 @@ def main(page: ft.Page):
                 for r in data:
                     clean_problem_type = r[1].split(" ", 1)[-1] if " " in r[1] else r[1]
 
+                    def create_detail_handler(item=r):
+                        return lambda e: open_report_detail(item)
+
                     my_list.controls.append(
                         modern_card(
                             ft.Column([
@@ -1333,7 +1329,7 @@ def main(page: ft.Page):
                                 ft.Row([
                                     secondary_button(
                                         "View Details",
-                                        lambda e, item=r: open_report_detail(item),
+                                        create_detail_handler(),
                                         icon=ft.Icons.VISIBILITY
                                     ),
                                 ])
@@ -1394,6 +1390,18 @@ def main(page: ft.Page):
                             blur_radius=8,
                             color=ft.Colors.BLACK12
                         )
+                    )
+                ])
+            else:
+                content_controls.extend([
+                    ft.Container(height=10),
+                    ft.Container(
+                        content=ft.Column([
+                            ft.Icon(ft.Icons.PHOTO_CAMERA_OUTLINED, size=48, color="#cbd5e1"),
+                            ft.Text("No photo attached", size=14, color="#94a3b8"),
+                        ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=8),
+                        padding=20,
+                        alignment=ft.alignment.center
                     )
                 ])
 
