@@ -33,8 +33,6 @@ def get_db_connection():
         print(f"❌ Database connection failed: {e}")
         raise
 
-# ... rest of your app code ...
-
 def init_database():
     """Initialize the database tables"""
     try:
@@ -115,10 +113,6 @@ def init_database():
 
 # Initialize database when app starts
 init_database()
-
-# ... rest of your app code continues here ...
-
-# ... rest of your app.py code remains the same ...
 
 def main(page: ft.Page):
     page.title = "CommunityCare - Report System"
@@ -320,6 +314,69 @@ def main(page: ft.Page):
         except Exception as e:
             logging.error(f"Error compressing image: {e}")
             return image_data
+
+    # File pickers for photo upload
+    file_picker = ft.FilePicker()
+    camera_picker = ft.FilePicker()
+
+    def handle_file_upload(e: ft.FilePickerResultEvent):
+        if e.files and e.files[0]:
+            try:
+                photo_file = e.files[0]
+                # For web deployment, read file content
+                photo_bytes = photo_file.read()
+                photo_data = base64.b64encode(photo_bytes).decode('utf-8')
+        
+                # Compress the image
+                compressed_data = compress_image(photo_data)
+        
+                photo_state.photo_data = compressed_data
+                photo_state.photo_name = photo_file.name
+                update_photo_display()
+                show_snack("Photo uploaded successfully! 📸")
+            except Exception as ex:
+                print(f"Photo upload error: {str(ex)}")
+                show_snack(f"Error uploading photo: {str(ex)}", "#ef4444")
+
+    def handle_camera_photo(e: ft.FilePickerResultEvent):
+        if e.files and e.files[0]:
+            try:
+                photo_file = e.files[0]
+                photo_bytes = photo_file.read()
+                photo_data = base64.b64encode(photo_bytes).decode('utf-8')
+        
+                # Compress the image
+                compressed_data = compress_image(photo_data)
+        
+                photo_state.photo_data = compressed_data
+                photo_state.photo_name = "camera_photo.jpg"
+                update_photo_display()
+                show_snack("Photo captured successfully! 📸")
+        
+            except Exception as ex:
+                print(f"Camera photo error: {str(ex)}")
+                show_snack(f"Error processing photo: {str(ex)}", "#ef4444")
+
+    def open_file_picker(e):
+        file_picker.pick_files(
+            allow_multiple=False,
+            allowed_extensions=["png", "jpg", "jpeg", "gif"],
+            file_type=ft.FilePickerFileType.IMAGE
+        )
+
+    def open_camera_picker(e):
+        camera_picker.pick_files(
+            allow_multiple=False,
+            allowed_extensions=["png", "jpg", "jpeg"],
+            file_type=ft.FilePickerFileType.IMAGE
+        )
+
+    # Set file picker handlers
+    file_picker.on_result = handle_file_upload
+    camera_picker.on_result = handle_camera_photo
+
+    # Add file pickers to page overlay
+    page.overlay.extend([file_picker, camera_picker])
 
     def login_screen():
         page.clean()
@@ -1217,42 +1274,6 @@ def main(page: ft.Page):
         uploaded_images = ft.Row(spacing=8, wrap=True, controls=[])
         photo_name_text = ft.Text("", size=12, color="#64748b")
 
-        def handle_file_upload(e: ft.FilePickerResultEvent):
-            if e.files and e.files[0]:
-                try:
-                    with open(e.files[0].path, "rb") as img_file:
-                        photo_data = base64.b64encode(img_file.read()).decode('utf-8')
-                    
-                    # Compress the image
-                    compressed_data = compress_image(photo_data)
-                    
-                    photo_state.photo_data = compressed_data
-                    photo_state.photo_name = e.files[0].name
-                    update_photo_display()
-                    show_snack("Photo uploaded successfully! 📸")
-                except Exception as ex:
-                    show_snack(f"Error uploading photo: {str(ex)}", "#ef4444")
-
-        def handle_camera_photo(e: ft.FilePickerResultEvent):
-            if e.files and e.files[0]:
-                try:
-                    with open(e.files[0].path, "rb") as img_file:
-                        photo_data = base64.b64encode(img_file.read()).decode('utf-8')
-                    
-                    # Compress the image
-                    compressed_data = compress_image(photo_data)
-                    
-                    photo_state.photo_data = compressed_data
-                    photo_state.photo_name = "camera_photo.jpg"
-                    update_photo_display()
-                    show_snack("Photo captured successfully! 📸")
-                except Exception as ex:
-                    show_snack(f"Error processing photo: {str(ex)}", "#ef4444")
-
-        file_picker = ft.FilePicker(on_result=handle_file_upload)
-        camera_picker = ft.FilePicker(on_result=handle_camera_photo)
-        page.overlay.extend([file_picker, camera_picker])
-
         def update_photo_display():
             uploaded_images.controls.clear()
             if photo_state.photo_data:
@@ -1284,13 +1305,6 @@ def main(page: ft.Page):
             photo_state.photo_name = None
             update_photo_display()
             show_snack("Photo removed", "#f59e0b")
-
-        def open_camera(e):
-            camera_picker.pick_files(
-                allow_multiple=False,
-                allowed_extensions=["png", "jpg", "jpeg"],
-                file_type=ft.FilePickerFileType.IMAGE
-            )
 
         my_list = ft.ListView(expand=True, spacing=8)
 
@@ -1421,31 +1435,48 @@ def main(page: ft.Page):
             page.update()
 
         def submit_report(e):
-            if not all([problem_type.value, location.value, issue.value]):
-                show_snack("Please fill in all required fields! 📝", "#f59e0b")
-                return
+            try:
+                if not all([problem_type.value, location.value, issue.value]):
+                    show_snack("Please fill in all required fields! 📝", "#f59e0b")
+                    return
+                date = datetime.now().strftime("%Y-%m-%d %H:%M")
 
-            date = datetime.now().strftime("%Y-%m-%d %H:%M")
+                conn = get_db_connection()
+                cursor = conn.cursor()
+        
+                # Use NULL instead of empty strings for numeric fields
+                cursor.execute("""    
+                    INSERT INTO reports (user_id, name, problem_type, location, issue, date, priority, photo_data, latitude, longitude)  
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) 
+                """, (
+                    current_user["id"],            
+                    current_user["username"],         
+                    problem_type.value,          
+                    location.value,          
+                    issue.value,          
+                    date,        
+                    priority.value,     
+                    photo_state.photo_data,  
+                    None,   
+                    None    
+                ))
+        
+                conn.commit()
+                cursor.close()
+                conn.close()
 
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO reports (user_id, name, problem_type, location, issue, date, priority, photo_data, latitude, longitude) 
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """, (current_user["id"], current_user["username"], problem_type.value, location.value,
-                  issue.value, date, priority.value, photo_state.photo_data, "", ""))
-            conn.commit()
-            cursor.close()
-            conn.close()
+                # Reset form
+                problem_type.value = ""
+                location.value = ""
+                issue.value = ""
+                priority.value = "🟡 Medium"
+                clear_photo(None)
 
-            problem_type.value = ""
-            location.value = ""
-            issue.value = ""
-            priority.value = "🟡 Medium"
-            clear_photo(None)
-
-            show_snack("Report submitted successfully! ✅")
-            load_user_reports()
+                show_snack("Report submitted successfully! ✅") 
+                load_user_reports()
+            except Exception as ex:
+                print(f"Submit report error: {str(ex)}")
+                show_snack(f"Error submitting report: {str(ex)}", "#ef4444") 
 
         def show_my_reports():
             load_user_reports()
@@ -1621,23 +1652,23 @@ def main(page: ft.Page):
                         ft.Row([
                             secondary_button(
                                 "Upload Photo",
-                                lambda _: file_picker.pick_files(
-                                    allow_multiple=False,
-                                    allowed_extensions=["png", "jpg", "jpeg"]
-                                ),
+                                open_file_picker,
                                 icon=ft.Icons.UPLOAD_FILE
                             ),
                             secondary_button(
-                                "Take Photo",
-                                open_camera,
+                                "Take Photo", 
+                                open_camera_picker,
                                 icon=ft.Icons.CAMERA_ALT
                             ),
                         ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-                        ft.TextButton(
-                            "Clear Photo",
-                            on_click=clear_photo,
-                            style=ft.ButtonStyle(color="#64748b")
-                        ) if photo_state.photo_data else ft.Container(),
+                        ft.Container(
+                            content=ft.TextButton(
+                                "Clear Photo",
+                                on_click=clear_photo,
+                                style=ft.ButtonStyle(color="#64748b")
+                            ) if photo_state.photo_data else ft.Container(),
+                            padding=ft.padding.only(top=10) if photo_state.photo_data else 0
+                        ),
                         uploaded_images,
                         photo_name_text,
                         ft.Container(height=10),
